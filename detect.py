@@ -1,9 +1,8 @@
-from os import device_encoding
-from cv2 import resize
-from model import SSD300
 from libs import *
 from utils import *
-from dataset import Resize
+from dataset import *
+from model import SSD300
+
 
 class Detect():
     """Args:
@@ -133,7 +132,45 @@ def show_pred(model, image):
         plt.imshow(img)
         plt.show()
 
+def to_txt_file(model, testset):
+    """Write all annotions of boxes from model and data to file .txt
+    """
+    model.eval()
 
+    for image, targets, difficulties, filenames in iter(testset):
+        image = image.unsqueeze(0).to(device)
+        targets = targets.to(device)
+
+        locs, confs, def_boxes = model(image)
+
+        det = Detect(min_score=0.2, top_k=200, max_overlap=0.5)
+        boxes, labels, scores = det.forward(locs, confs, def_boxes)
+        
+        ground_truths_path =  'metrics//Object-Detection-Metrics//groundtruths//' + filenames[0][:-3] +'txt'
+        detections_path =  'metrics//Object-Detection-Metrics//detections//' + filenames[0][:-3] +'txt'
+
+
+        # write ground truths folder
+        with open(ground_truths_path, 'w+') as f:
+            for i in range(targets.size(0)):
+                target = targets[i]
+                box = target[:4] * 300
+                box = box.int()
+                content = '{} {} {} {} {}\n'.format(classes[target[4].int()], box[0] , box[1], box[2], box[3])
+                f.write(content)
+
+        
+        with open(detections_path, 'w+') as f:
+            for i in range(len(boxes[0])):
+                label = labels[0][i].int()
+                score = scores[0][i]
+                box = boxes[0][i].int()
+                if label == 0:
+                    continue
+
+                content = '{} {} {} {} {} {}\n'.format(classes[label-1], score, box[0], box[1], box[2], box[3])
+                f.write(content)
+        # show_pred(model, image)
 
 if __name__ == "__main__":
 
@@ -146,6 +183,8 @@ if __name__ == "__main__":
                "dog", "horse", "motorbike", "person", "pottedplant",
                "sheep", "sofa", "train", "tvmonitor"]
     
+    testset = VOC2007Detection(root='G:/VOC 2007/', classes=classes, transform=transform, image_set='test')
+    testloader = DataLoader(dataset=testset, batch_size=32, shuffle=True, collate_fn=collate_fn)
 
     model = SSD300(21).to(device)
     weights = torch.load('G:/VOC 2007/weights/ssd300_trainval_200.pth')
