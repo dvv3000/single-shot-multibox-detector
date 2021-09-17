@@ -2,6 +2,7 @@ from libs import *
 from utils import *
 from dataset import *
 from model import SSD300
+from augment import TestTransform
 
 
 class Detect():
@@ -101,7 +102,7 @@ class Detect():
 
 
 
-def show_pred(model, image):
+def show_pred(model, image, min_score=0.01):
 
     """Show predictions from model to image
         Args:
@@ -113,7 +114,7 @@ def show_pred(model, image):
     locs, confs, def_boxes = model(image)
     img = image.squeeze(0)
     img = img.permute(1, 2, 0).contiguous().cpu().numpy()
-    det = Detect(min_score=0.3, max_overlap=0.3)
+    det = Detect(min_score, max_overlap=0.45)
     boxes_batch, labels_batch, scores_batch = det.forward(locs, confs, def_boxes) #list of tensor
 
     for item in range(len(boxes_batch)):
@@ -124,7 +125,7 @@ def show_pred(model, image):
             box = boxes[i]
             start = (int(box[0]), int(box[1]))
             end = (int(box[2]), int(box[3]))
-            text = "%s"%(classes[labels[i]-1][:3])
+            text = "%s:%.1f"%(classes[labels[i]-1][:3], scores[i])
             # print(start, end, classes[labels[i] - 1], scores[i])
             img = cv2.rectangle(img, start, end, (255, 0, 0), 1)
             img = cv2.putText(img, text, start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_AA)
@@ -143,7 +144,7 @@ def to_txt_file(model, testset):
 
         locs, confs, def_boxes = model(image)
 
-        det = Detect(min_score=0.2, top_k=200, max_overlap=0.5)
+        det = Detect(min_score=0.2, top_k=200, max_overlap=0.45)
         boxes, labels, scores = det.forward(locs, confs, def_boxes)
         
         ground_truths_path =  'metrics//Object-Detection-Metrics//groundtruths//' + filenames[0][:-3] +'txt'
@@ -183,21 +184,27 @@ if __name__ == "__main__":
                "dog", "horse", "motorbike", "person", "pottedplant",
                "sheep", "sofa", "train", "tvmonitor"]
     
-    testset = VOC2007Detection(root='G:/VOC 2007/', classes=classes, transform=transform, image_set='test')
-    testloader = DataLoader(dataset=testset, batch_size=32, shuffle=True, collate_fn=collate_fn)
+    testset = VOC2007Detection(root='G:/VOC 2007/', classes=classes, transform=TestTransform(), image_set='test')
+    # testloader = DataLoader(dataset=testset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
     model = SSD300(21).to(device)
-    weights = torch.load('G:/VOC 2007/weights/ssd300_trainval_200.pth')
+
+    #Load weights
+    weights = torch.load('G:/VOC 2007/weights/ssd300_35.pth')
     model.load_state_dict(weights)
 
     image = cv2.imread('data/test.jpg')
     resize = Resize(300)
     totensor = transforms.ToTensor()
     
-    image, _ = resize(image)
+    image, _, _ = resize(image)
     image = totensor(image)
 
     image = image.unsqueeze(0).to(device)
     
-    show_pred(model, image)
+    show_pred(model, image, min_score=0.5)
+
+
+    # To calculate mAP
+    # to_txt_file(model, testset)
 

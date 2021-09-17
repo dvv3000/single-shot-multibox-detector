@@ -4,6 +4,7 @@ import random
 import cv2
 import os
 import time
+import types
 from pprint import PrettyPrinter
 
 import torch

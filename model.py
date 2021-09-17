@@ -1,7 +1,6 @@
 from libs import *
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 class Base(nn.Module):
     """Create first block base on VGG16 and get its pretrained weights
         Thiếu maxpool ở layer4
@@ -188,14 +187,14 @@ class Extras(nn.Module):
         return conv8_2_feat, conv9_2_feat, conv10_2_feat, conv11_2_feat
 
 
-class Predict(nn.Module):
+class Predictions(nn.Module):
     """Predict block
         Returns:
             locs(tensor): (batch, 8732, 4): offsets of each boxes
             confs(tensor): (batch, 8732, 21): confidences of each boxes
     """
     def __init__(self, num_classes):
-        super(Predict, self).__init__()
+        super(Predictions, self).__init__()
         self.num_classes = num_classes
         num_boxes = {'conv4_3':4, 'conv7':6, 'conv8_2':6, 'conv9_2':6, 'conv10_2':4, 'conv11_2':4} #Number of default boxes for each feature
 
@@ -303,7 +302,7 @@ class SSD300(nn.Module):
         nn.init.constant_(self.rescale_factors, 20)
             
         self.extras = Extras()
-        self.predict = Predict(num_classes)
+        self.predict = Predictions(num_classes)
 
         self.def_boxes = create_default_boxes()
 
@@ -376,10 +375,11 @@ def create_default_boxes():
     return def_boxes.to(device)
 
 if __name__ == "__main__":
-    print("device:", device)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print("device:", device, torch.cuda.get_device_name(0))
     model = SSD300(21)
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.parameters())
-
+    print(model)
     print('Trainable parameters =', trainable_params)
     print('Total parameters =', total_params)
