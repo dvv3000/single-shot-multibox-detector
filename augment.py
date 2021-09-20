@@ -87,10 +87,11 @@ class ToAbsoluteCoords(object):
 class ToPercentCoords(object):
     def __call__(self, image, boxes=None, labels=None):
         height, width, channels = image.shape
-        boxes[:, 0] /= width
-        boxes[:, 2] /= width
-        boxes[:, 1] /= height
-        boxes[:, 3] /= height
+        if boxes != None:
+            boxes[:, 0] /= width
+            boxes[:, 2] /= width
+            boxes[:, 1] /= height
+            boxes[:, 3] /= height
 
         return image, boxes, labels
 
@@ -402,7 +403,6 @@ class SSDAugmentation(object):
         self.size = size
         self.augment = Compose([
             ConvertFromInts(),
-            # ToAbsoluteCoords(),
             PhotometricDistort(),
             Expand(self.mean),
             RandomSampleCrop(),
@@ -428,5 +428,5 @@ class TestTransform(object):
             ToTensor()
         ])
 
-    def __call__(self, img, boxes, labels):
+    def __call__(self, img, boxes=None, labels=None):
         return self.augment(img, boxes, labels)
