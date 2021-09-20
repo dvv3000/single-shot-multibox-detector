@@ -23,7 +23,7 @@ class Detect(nn.Module):
 
     """
 
-    def __init__(self, min_score=0.2, top_k=200, max_overlap=0.45):
+    def __init__(self, min_score=0.01, top_k=200, max_overlap=0.45):
         super(Detect, self).__init__()
 
         self.softmax = nn.Softmax(dim=-1)
@@ -105,7 +105,7 @@ class Detect(nn.Module):
 
 
 
-def show_pred(model, image, transform, min_score=0.01):
+def show_pred(model, image, transform, min_score=0.01, max_overlap=0.45):
 
     """Show predictions from model to image
         Args:
@@ -118,7 +118,7 @@ def show_pred(model, image, transform, min_score=0.01):
 
     locs, confs, def_boxes = model(img)
     
-    det = Detect(min_score, max_overlap=0.45)
+    det = Detect(min_score=min_score, max_overlap=max_overlap)
     boxes_batch, labels_batch, scores_batch = det(locs, confs, def_boxes) #list of tensor
 
     for item in range(len(boxes_batch)):
@@ -138,8 +138,9 @@ def show_pred(model, image, transform, min_score=0.01):
         plt.show()
 
 def to_txt_file(model, testset, groundtruths_path, detections_path):
-    """Write all annotions of boxes from model and data to file .txt
-    """
+    """Write all annotions of boxes from model and data to file .txt """
+
+
     model.eval()
 
     for image, targets, difficulties, filenames in iter(testset):
@@ -148,7 +149,7 @@ def to_txt_file(model, testset, groundtruths_path, detections_path):
 
         locs, confs, def_boxes = model(image)
 
-        det = Detect(min_score=0.2, top_k=200, max_git overlap=0.45)
+        det = Detect(min_score=0.01, top_k=200, max_overlap=0.45)
         boxes, labels, scores = det.forward(locs, confs, def_boxes)
         
         gt_file =  groundtruths_path + filenames[0][:-3] +'txt'
@@ -192,7 +193,7 @@ if __name__ == "__main__":
 
     pretrained_weights_path = 'G:/VOC 2007/weights/ssd300_75.pth'
 
-    iamge_size = 300
+    image_size = 300
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
 
@@ -200,7 +201,9 @@ if __name__ == "__main__":
                "bus", "car", "cat", "chair", "cow", "diningtable",
                "dog", "horse", "motorbike", "person", "pottedplant",
                "sheep", "sofa", "train", "tvmonitor"]
-
+    
+    
+    num_classes = len(classes) + 1 # co them background
 
 
 
@@ -210,14 +213,14 @@ if __name__ == "__main__":
     testset = VOC2007Detection(root_path, classes=classes, transform=TestTransform(), image_set='test')
     # testloader = DataLoader(dataset=testset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
-    model = SSD300(21).to(device)
+    model = SSD300(num_classes).to(device)
 
     #Load weights
     weights = torch.load(pretrained_weights_path)
     model.load_state_dict(weights)
 
     image = cv2.imread('data/chomeo.jpg')
-    resize = Resize(300)
+    resize = Resize(image_size)
     image, _, _ = resize(image)
 
     # image = image.unsqueeze(0).to(device)
