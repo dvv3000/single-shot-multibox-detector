@@ -5,7 +5,7 @@ from lossfunction import MultiboxLoss
 from augment import SSDAugmentation
 
 
-def train(model, trainloader, criterion, optimizer, epochs, valloader=None):
+def train(model, trainloader, criterion, optimizer, epochs, valloader=None, print_freq=100, weights_path='/weights/ssd300_'):
     """Args:
             model: have to change to GPU first
             trainloader
@@ -14,7 +14,6 @@ def train(model, trainloader, criterion, optimizer, epochs, valloader=None):
             optimizer
             epochs: number epochs u wanna train
     """
-    print_freq = 100
 
     for epoch in range(epochs):
         epoch_loss = 0.0
@@ -75,7 +74,7 @@ def train(model, trainloader, criterion, optimizer, epochs, valloader=None):
         print('\t Time: {:.2f} s, train_loss: {:.4f}, val_loss: {:.4f}'.format(time_per_epoch, epoch_loss, val_epoch_loss))
 
         if (epoch + 1) % 5 == 0:
-            torch.save(model.state_dict(), './weights/ssd300_' + str(epoch + 1) + '.pth') 
+            torch.save(model.state_dict(), weights_path + str(epoch + 1) + '.pth') 
             print("Save weights on \'./weights/\'.")
 
 
@@ -85,24 +84,41 @@ if __name__ == "__main__":
     print("device:", device)
     torch.backends.cudnn.benchmark = True
 
+
+    root_path = 'G:/VOC 2007/'
+
+    pretrained_weights_path = 'G:/VOC 2007/weights/ssd300_trainval_200.pth'
+
+    image_size = 300
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+
+    batch_size = 8
+    learning_rate = 1e-3
+    momentum = 0.9
+    weight_decay = 5e-4
+
+
     classes = ["aeroplane", "bicycle", "bird",  "boat", "bottle", 
                "bus", "car", "cat", "chair", "cow", "diningtable",
                "dog", "horse", "motorbike", "person", "pottedplant",
                "sheep", "sofa", "train", "tvmonitor"]
 
-    transform = Compose([Resize(300), NormalizeCoords(), ToTensor(),
-    Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                ])
+
+
+
+
+    transform = Compose([Resize(image_size), NormalizeCoords(), ToTensor(), Normalize(mean, std)])
     
-    trainset = VOC2007Detection('G:/VOC 2007/', classes, transform=SSDAugmentation())
+    trainset = VOC2007Detection(root_path, classes, transform=SSDAugmentation())
     print('Length of trainset:', len(trainset))
     trainloader = DataLoader(trainset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
 
     model = SSD300(21).to(device)
 
-    # weights = torch.load('G:/VOC 2007/weights/ssd300_trainval_200.pth')
-    # model.load_state_dict(weights)
+    weights = torch.load(pretrained_weights_path)
+    model.load_state_dict(weights)
 
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.parameters())
@@ -112,7 +128,7 @@ if __name__ == "__main__":
 
 
     criterion = MultiboxLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=5e-4)
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
 
     train(model, trainloader, criterion, optimizer, 100)
 

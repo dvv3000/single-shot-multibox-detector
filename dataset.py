@@ -1,4 +1,4 @@
-from cv2 import transform
+
 from libs import *
 from augment import SSDAugmentation
 
@@ -216,11 +216,16 @@ if __name__ == "__main__":
                "dog", "horse", "motorbike", "person", "pottedplant",
                "sheep", "sofa", "train", "tvmonitor"]
 
+    root_path = 'G:/VOC 2007/'
+
+
+
+
     transform = Compose([Resize(300), NormalizeCoords(), ToTensor(),
     Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 ])
-    
-    dataset = VOC2007Detection('G:/VOC 2007/', classes, transform=SSDAugmentation())
+
+    dataset = VOC2007Detection(root_path, classes, transform=SSDAugmentation())
     print('Length of dataset', len(dataset))
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
