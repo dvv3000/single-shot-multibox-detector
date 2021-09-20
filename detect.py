@@ -1,3 +1,4 @@
+from torchvision.transforms.functional import resize
 from libs import *
 from utils import *
 from dataset import *
@@ -5,7 +6,7 @@ from model import SSD300
 from augment import TestTransform
 
 
-class Detect():
+class Detect(nn.Module):
     """Args:
             min_score: gia tri score toi thieu cua cac boxes
             top_k: so boxes toi da tren moi image
@@ -23,6 +24,8 @@ class Detect():
     """
 
     def __init__(self, min_score=0.2, top_k=200, max_overlap=0.45):
+        super(Detect, self).__init__()
+
         self.softmax = nn.Softmax(dim=-1)
         self.min_score = min_score
         self.top_k = top_k
@@ -102,20 +105,21 @@ class Detect():
 
 
 
-def show_pred(model, image, min_score=0.01):
+def show_pred(model, image, transform, min_score=0.01):
 
     """Show predictions from model to image
         Args:
             model: change to GPU first
-            image(tensor): (1, 3, 300, 300)
+            image(numpy array)
     """
     model.eval()
+    img, _, _ = transform(image)
+    img = img.unsqueeze(0).to(device)
+
+    locs, confs, def_boxes = model(img)
     
-    locs, confs, def_boxes = model(image)
-    img = image.squeeze(0)
-    img = img.permute(1, 2, 0).contiguous().cpu().numpy()
     det = Detect(min_score, max_overlap=0.45)
-    boxes_batch, labels_batch, scores_batch = det.forward(locs, confs, def_boxes) #list of tensor
+    boxes_batch, labels_batch, scores_batch = det(locs, confs, def_boxes) #list of tensor
 
     for item in range(len(boxes_batch)):
         scores = scores_batch[item]
@@ -127,13 +131,13 @@ def show_pred(model, image, min_score=0.01):
             end = (int(box[2]), int(box[3]))
             text = "%s:%.1f"%(classes[labels[i]-1][:3], scores[i])
             # print(start, end, classes[labels[i] - 1], scores[i])
-            img = cv2.rectangle(img, start, end, (255, 0, 0), 1)
-            img = cv2.putText(img, text, start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_AA)
+            image = cv2.rectangle(image, start, end, (255, 0, 0), 1)
+            image = cv2.putText(image, text, start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_AA)
         
-        plt.imshow(img)
+        plt.imshow(image)
         plt.show()
 
-def to_txt_file(model, testset):
+def to_txt_file(model, testset, groundtruths_path, detections_path):
     """Write all annotions of boxes from model and data to file .txt
     """
     model.eval()
@@ -144,15 +148,15 @@ def to_txt_file(model, testset):
 
         locs, confs, def_boxes = model(image)
 
-        det = Detect(min_score=0.2, top_k=200, max_overlap=0.45)
+        det = Detect(min_score=0.2, top_k=200, max_git overlap=0.45)
         boxes, labels, scores = det.forward(locs, confs, def_boxes)
         
-        ground_truths_path =  'metrics//Object-Detection-Metrics//groundtruths//' + filenames[0][:-3] +'txt'
-        detections_path =  'metrics//Object-Detection-Metrics//detections//' + filenames[0][:-3] +'txt'
+        gt_file =  groundtruths_path + filenames[0][:-3] +'txt'
+        det_file =  detections_path + filenames[0][:-3] +'txt'
 
 
         # write ground truths folder
-        with open(ground_truths_path, 'w+') as f:
+        with open(gt_file, 'w+') as f:
             for i in range(targets.size(0)):
                 target = targets[i]
                 box = target[:4] * 300
@@ -161,7 +165,7 @@ def to_txt_file(model, testset):
                 f.write(content)
 
         
-        with open(detections_path, 'w+') as f:
+        with open(det_file, 'w+') as f:
             for i in range(len(boxes[0])):
                 label = labels[0][i].int()
                 score = scores[0][i]
@@ -179,32 +183,48 @@ if __name__ == "__main__":
     print("device:", device)
     torch.backends.cudnn.benchmark = True
 
+
+
+    root_path = 'G:/VOC 2007/'
+
+    groundtruths_path='metrics//Object-Detection-Metrics//groundtruths//'
+    detections_path='metrics//Object-Detection-Metrics//detections//'
+
+    pretrained_weights_path = 'G:/VOC 2007/weights/ssd300_75.pth'
+
+    iamge_size = 300
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+
     classes = ["aeroplane", "bicycle", "bird",  "boat", "bottle", 
                "bus", "car", "cat", "chair", "cow", "diningtable",
                "dog", "horse", "motorbike", "person", "pottedplant",
                "sheep", "sofa", "train", "tvmonitor"]
-    
-    testset = VOC2007Detection(root='G:/VOC 2007/', classes=classes, transform=TestTransform(), image_set='test')
+
+
+
+
+    transform = Compose([Resize(300), NormalizeCoords(), ToTensor(), Normalize(mean, std)])
+    test_transform = Compose([Resize(300), NormalizeCoords(), ToTensor()])
+
+    testset = VOC2007Detection(root_path, classes=classes, transform=TestTransform(), image_set='test')
     # testloader = DataLoader(dataset=testset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
     model = SSD300(21).to(device)
 
     #Load weights
-    weights = torch.load('G:/VOC 2007/weights/ssd300_35.pth')
+    weights = torch.load(pretrained_weights_path)
     model.load_state_dict(weights)
 
-    image = cv2.imread('data/test.jpg')
+    image = cv2.imread('data/chomeo.jpg')
     resize = Resize(300)
-    totensor = transforms.ToTensor()
-    
     image, _, _ = resize(image)
-    image = totensor(image)
 
-    image = image.unsqueeze(0).to(device)
+    # image = image.unsqueeze(0).to(device)
     
-    show_pred(model, image, min_score=0.5)
+    show_pred(model, image, transform=TestTransform(), min_score=0.2)
 
 
     # To calculate mAP
-    # to_txt_file(model, testset)
+    # to_txt_file(model, trainset, groundtruths_path, detections_path)
 
