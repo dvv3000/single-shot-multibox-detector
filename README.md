@@ -6,7 +6,7 @@
   - [***Content***](#content)
   - [***Enviroment***](#enviroment)
   - [***Dataset***](#dataset)
-    - [*Giới thiệu*](#giới-thiệu)
+    - [*Description*](#description)
     - [*Data Pipeline*](#data-pipeline)
     - [*Download*](#download)
   - [***Model***](#model)
@@ -33,7 +33,7 @@
 
 ## ***Dataset***
 Pascal Vitual Object Classes (VOC) 2007.
-### *Giới thiệu*
+### *Description*
 Dataset bao gồm 5011 ảnh ở tập trainval và 4952 ảnh ở tập test.
 
 Mỗi ảnh trong sẽ có 1 file annotations dạng .xml chứa tên ảnh, các bounding box và tên class tương ứng. 
