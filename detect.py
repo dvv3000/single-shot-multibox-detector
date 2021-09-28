@@ -3,7 +3,7 @@ from libs import *
 from utils import *
 from dataset import *
 from model import SSD300
-from augment import TestTransform
+from augment import ResizeAugm, TestTransform
 
 
 class Detect(nn.Module):
@@ -113,6 +113,9 @@ def show_pred(model, image, transform, min_score=0.01, max_overlap=0.45):
             image(numpy array)
     """
     model.eval()
+    resize = ResizeAugm(300)
+    image, _, _ = resize(image)
+    
     img, _, _ = transform(image)
     img = img.unsqueeze(0).to(device)
 
@@ -129,13 +132,14 @@ def show_pred(model, image, transform, min_score=0.01, max_overlap=0.45):
             box = boxes[i]
             start = (int(box[0]), int(box[1]))
             end = (int(box[2]), int(box[3]))
-            text = "%s:%.1f"%(classes[labels[i]-1][:3], scores[i])
-            # print(start, end, classes[labels[i] - 1], scores[i])
-            image = cv2.rectangle(image, start, end, (255, 0, 0), 1)
-            image = cv2.putText(image, text, start, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_AA)
+            text = "%s"%(classes[labels[i]-1])
+            print(start, end, classes[labels[i] - 1], scores[i].item())
+            img = cv2.rectangle(image, start, end, (100, 0, 100), 1)
+            img = cv2.putText(image, text, start, cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 0, 255), 1, cv2.LINE_AA)
         
-        plt.imshow(image)
+        plt.imshow(img)
         plt.show()
+
 
 def to_txt_file(model, testset, groundtruths_path, detections_path):
     """Write all annotions of boxes from model and data to file .txt """
@@ -191,7 +195,7 @@ if __name__ == "__main__":
     groundtruths_path='metrics//Object-Detection-Metrics//groundtruths//'
     detections_path='metrics//Object-Detection-Metrics//detections//'
 
-    pretrained_weights_path = 'G:/VOC 2007/weights/ssd300_75.pth'
+    pretrained_weights_path = 'G:/VOC 2007/weights/ssd300_augm_185.pth'
 
     image_size = 300
     mean = [0.485, 0.456, 0.406]
@@ -207,9 +211,6 @@ if __name__ == "__main__":
 
 
 
-    transform = Compose([Resize(300), NormalizeCoords(), ToTensor(), Normalize(mean, std)])
-    test_transform = Compose([Resize(300), NormalizeCoords(), ToTensor()])
-
     testset = VOC2007Detection(root_path, classes=classes, transform=TestTransform(), image_set='test')
     # testloader = DataLoader(dataset=testset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
@@ -219,15 +220,19 @@ if __name__ == "__main__":
     weights = torch.load(pretrained_weights_path)
     model.load_state_dict(weights)
 
-    image = cv2.imread('data/chomeo.jpg')
-    resize = Resize(image_size)
-    image, _, _ = resize(image)
+    test_path = 'test-images/'
 
-    # image = image.unsqueeze(0).to(device)
+
+    for img_path in os.listdir(test_path):
+        path = test_path + img_path
+        image = cv2.imread(path)
+        print(path)
+
+        show_pred(model, image, transform=TestTransform(), min_score=0.4)
+        cv2.imwrite('results/'+img_path, image)
     
-    show_pred(model, image, transform=TestTransform(), min_score=0.2)
 
 
     # To calculate mAP
-    # to_txt_file(model, trainset, groundtruths_path, detections_path)
+    # to_txt_file(model, testset, groundtruths_path, detections_path)
 

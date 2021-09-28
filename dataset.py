@@ -122,10 +122,6 @@ class VOC2007Detection(Dataset):
         path = self.img_path % self.ids[index]
         image = cv2.imread(path) #(BGR)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) #RBG
-        # image = Image.open(path, mode='r')
-        # image = image.convert('RGB')
-        
-        # image = torch.from_numpy(image).permute(2, 0, 1)
 
         return image
 
@@ -220,12 +216,11 @@ if __name__ == "__main__":
 
 
 
-
     transform = Compose([Resize(300), NormalizeCoords(), ToTensor(),
     Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                 ])
 
-    dataset = VOC2007Detection(root_path, classes, transform=SSDAugmentation())
+    dataset = VOC2007Detection(root_path, classes, transform=transform)
     print('Length of dataset', len(dataset))
     dataloader = DataLoader(dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
